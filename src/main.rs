@@ -3,7 +3,6 @@ mod model;
 
 use std::collections::HashMap;
 use std::io::Read;
-use ludviggl_chess::Player;
 use model::*;
 use shader::*;
 
@@ -17,7 +16,10 @@ struct Game {
     board: [Model2D; 64],
     white_pieces: [Model2D; 6],
     black_pieces: [Model2D; 6],
-    game_end: bool
+    game_end: bool,
+    promoting: bool,
+    selected_prom: ludviggl_chess::Piece
+
 }
 
 struct Character {
@@ -59,7 +61,9 @@ impl Game {
             board: b,
             white_pieces: wp,
             black_pieces: bp,
-            game_end: false
+            game_end: false,
+            promoting: false,
+            selected_prom: ludviggl_chess::Piece::Pawn
         };
     }
 }
@@ -116,7 +120,7 @@ fn main() {
                 }
 
                 WindowEvent::MouseButton(MouseButton::Button1, Action::Press, _) => {
-                    if !game.game_end {
+                    if !game.game_end && !game.promoting {
                         on_pick(&mut game, &window);
                     }
                 }
@@ -129,6 +133,17 @@ fn main() {
                 }
 
                 _ => {}
+            }
+
+            if game.promoting {
+                match event {
+                    WindowEvent::Key(Key::Num1, _, Action::Press, _) => { game.selected_prom = ludviggl_chess::Piece::Rook; }
+                    WindowEvent::Key(Key::Num2, _, Action::Press, _) => { game.selected_prom = ludviggl_chess::Piece::Knight; }
+                    WindowEvent::Key(Key::Num3, _, Action::Press, _) => { game.selected_prom = ludviggl_chess::Piece::Bishop; }
+                    WindowEvent::Key(Key::Num4, _, Action::Press, _) => { game.selected_prom = ludviggl_chess::Piece::Queen; }
+
+                    _ => { }
+                }
             }
         }
 
@@ -176,7 +191,20 @@ fn main() {
             }
 
             ludviggl_chess::State::SelectPromotion => {
-                game.chess.select_promotion(ludviggl_chess::Piece::Queen).unwrap();
+                game.promoting = true;
+                text_shader.use_program();
+                text_shader.set_mat4("projection", text_proj);
+                render_text(&text_shader, "Select promotion:".to_string(), 800.0, 600.0, 0.5, vec4(1.0, 1.0, 1.0, 1.0), &characters, &mut char_quad);
+                render_text(&text_shader, "1: Rook".to_string(), 800.0, 570.0, 0.6, vec4(1.0, 1.0, 1.0, 1.0), &characters, &mut char_quad);
+                render_text(&text_shader, "2: Knight".to_string(), 800.0, 540.0, 0.6, vec4(1.0, 1.0, 1.0, 1.0), &characters, &mut char_quad);
+                render_text(&text_shader, "3: Bishop".to_string(), 800.0, 510.0, 0.6, vec4(1.0, 1.0, 1.0, 1.0), &characters, &mut char_quad);
+                render_text(&text_shader, "4: Queen".to_string(), 800.0, 480.0, 0.6, vec4(1.0, 1.0, 1.0, 1.0), &characters, &mut char_quad);
+                
+                let prom = game.selected_prom;
+                if game.chess.select_promotion(prom).is_ok() {
+                    game.promoting = false;
+                    game.selected_prom = ludviggl_chess::Piece::Pawn;
+                }
             }
 
             _ => { }
